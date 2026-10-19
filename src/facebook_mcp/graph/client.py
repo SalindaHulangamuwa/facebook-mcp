@@ -84,7 +84,9 @@ class GraphClient:
         payload: JSON = response.json()
         return payload
 
-    async def upload(self, url: str, *, token: str, content: bytes, headers: dict[str, str]) -> JSON:
+    async def upload(
+        self, url: str, *, token: str, content: bytes, headers: dict[str, str]
+    ) -> JSON:
         """POST raw bytes to an absolute upload URL (e.g. rupload.facebook.com for Reels)."""
         try:
             response = await self._connection().post(

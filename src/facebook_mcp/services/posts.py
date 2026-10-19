@@ -2,7 +2,14 @@ from __future__ import annotations
 
 import asyncio
 
-from facebook_mcp.domain import CreatedObject, OperationResult, Paginated, Post, PostDraft, ReelDraft
+from facebook_mcp.domain import (
+    CreatedObject,
+    OperationResult,
+    Paginated,
+    Post,
+    PostDraft,
+    ReelDraft,
+)
 from facebook_mcp.pages import PageSession
 from facebook_mcp.services.base import PageAwareService, fields, operation_result
 

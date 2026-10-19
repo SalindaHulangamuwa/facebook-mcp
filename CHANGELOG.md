@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-19
+
 ### Added
 
 - `create_reel` tool: uploads a local video through the Reels resumable upload
@@ -27,5 +29,6 @@ All notable changes to this project are documented here. The format follows
 - `facebook-mcp exchange-token` helper for long-lived tokens.
 - Docker image.
 
-[Unreleased]: https://github.com/SalindaHulangamuwa/facebook-mcp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/SalindaHulangamuwa/facebook-mcp/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/SalindaHulangamuwa/facebook-mcp/releases/tag/v0.2.0
 [0.1.0]: https://github.com/SalindaHulangamuwa/facebook-mcp/releases/tag/v0.1.0
