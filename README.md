@@ -20,7 +20,7 @@ and any other MCP client.
 
 - **Multi-page:** give it one user token and it finds every Page you manage.
   Each Page uses its own Page token automatically.
-- **15 tools** covering posts, scheduling, photos, comments, moderation and insights.
+- **16 tools** covering posts, scheduling, photos, Reels, comments, moderation and insights.
 - **Safe by default:** tools are labelled read-only or destructive (MCP
   annotations), a `--read-only` mode hides write tools, requests are signed
   with `appsecret_proof`, and tokens never appear in URLs or logs.
@@ -73,6 +73,7 @@ the Page that owns the post.
 | `get_post` | read | One post with engagement counts |
 | `create_post` | write | Publish or schedule a text/link post |
 | `create_photo_post` | write | Publish a photo from a public URL |
+| `create_reel` | write | Upload a local video and publish or schedule it as a Reel |
 | `update_post` | write | Edit a post's text |
 | `delete_post` | destructive | Delete a post |
 | `list_comments` | read | Comments on a post, or replies to a comment (paginated) |

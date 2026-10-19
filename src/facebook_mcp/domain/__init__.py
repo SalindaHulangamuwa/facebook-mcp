@@ -8,6 +8,7 @@ from facebook_mcp.domain.models import (
     Paginated,
     Post,
     PostDraft,
+    ReelDraft,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "Paginated",
     "Post",
     "PostDraft",
+    "ReelDraft",
 ]

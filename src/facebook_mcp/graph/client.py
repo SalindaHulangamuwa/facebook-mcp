@@ -84,6 +84,19 @@ class GraphClient:
         payload: JSON = response.json()
         return payload
 
+    async def upload(self, url: str, *, token: str, content: bytes, headers: dict[str, str]) -> JSON:
+        """POST raw bytes to an absolute upload URL (e.g. rupload.facebook.com for Reels)."""
+        try:
+            response = await self._connection().post(
+                url, content=content, headers={"Authorization": f"OAuth {token}", **headers}
+            )
+        except httpx.HTTPError as exc:
+            raise GraphConnectionError(str(exc) or type(exc).__name__) from exc
+        if response.is_error:
+            raise error_from_response(response)
+        payload: JSON = response.json()
+        return payload
+
     async def aclose(self) -> None:
         """Release pooled connections. The client reopens lazily if used again."""
         if self._http is not None:
@@ -122,6 +135,9 @@ class BoundGraph:
 
     async def delete(self, path: str) -> JSON:
         return await self._client.request("DELETE", path, token=self._token)
+
+    async def upload(self, url: str, content: bytes, headers: dict[str, str]) -> JSON:
+        return await self._client.upload(url, token=self._token, content=content, headers=headers)
 
     def __repr__(self) -> str:  # never leak the token into logs or tracebacks
         return "BoundGraph(token=***)"

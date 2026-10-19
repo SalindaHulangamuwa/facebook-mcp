@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `create_reel` tool: uploads a local video through the Reels resumable upload
+  flow and publishes or schedules it on a Page.
+
 ## [0.1.0] - 2026-10-18
 
 ### Added

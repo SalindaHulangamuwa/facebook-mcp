@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from facebook_mcp.domain import CreatedObject, OperationResult, Paginated, Post, PostDraft
+import asyncio
+
+from facebook_mcp.domain import CreatedObject, OperationResult, Paginated, Post, PostDraft, ReelDraft
 from facebook_mcp.pages import PageSession
 from facebook_mcp.services.base import PageAwareService, fields, operation_result
 
@@ -45,6 +47,19 @@ class PostService(PageAwareService):
             f"{session.id}/photos", {"url": image_url, "caption": caption}
         )
         return CreatedObject.model_validate(payload)
+
+    async def create_reel(self, draft: ReelDraft, page: str | None = None) -> CreatedObject:
+        """Reels publishing is three calls: open an upload session, send bytes, finish."""
+        session = await self.pages.resolve(page)
+        edge = f"{session.id}/video_reels"
+        started = await session.graph.post(edge, {"upload_phase": "start"})
+        video_id = str(started["video_id"])
+        content = await asyncio.to_thread(draft.video_path.read_bytes)
+        await session.graph.upload(
+            started["upload_url"], content, {"offset": "0", "file_size": str(len(content))}
+        )
+        await session.graph.post(edge, draft.finish_params(video_id))
+        return CreatedObject(id=video_id)
 
     async def update_post(
         self, post_id: str, message: str, page: str | None = None

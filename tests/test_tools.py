@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import parse_qs
 
+import httpx
 import pytest
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
@@ -135,7 +136,7 @@ async def test_read_only_mode_hides_write_tools(fake_graph: FakeGraph) -> None:
 async def test_all_tools_carry_annotations(client: Client) -> None:
     tools = await client.list_tools()
 
-    assert len(tools) == 15
+    assert len(tools) == 16
     assert all(tool.annotations is not None for tool in tools)
     page_aware = [tool for tool in tools if tool.name != "list_pages"]
     assert all("page" in tool.input_schema["properties"] for tool in page_aware)
@@ -194,3 +195,41 @@ async def test_tools_call_the_expected_graph_endpoint(
         f"/v26.0/{route.path}",
     )
     assert fake_graph.token_of(fake_graph.last) == PAGE_TOKEN
+
+
+async def test_create_reel_uploads_then_schedules(
+    client: Client, fake_graph: FakeGraph, tmp_path: Any
+) -> None:
+    video = tmp_path / "reel.mp4"
+    video.write_bytes(b"\x00\x00\x00\x18ftypmp42")
+    upload_url = "https://rupload.facebook.com/video-upload/v26.0/777"
+    fake_graph.reply_sequence(
+        "POST",
+        f"{PAGE_ID}/video_reels",
+        httpx.Response(200, json={"video_id": "777", "upload_url": upload_url}),
+        httpx.Response(200, json={"success": True}),
+    )
+    fake_graph.reply("POST", "v26.0/777", {"success": True})
+
+    result = await client.call_tool(
+        "create_reel",
+        {
+            "video_path": str(video),
+            "description": "How Bluetooth works",
+            "scheduled_time": "2999-01-01T00:00:00Z",
+        },
+    )
+
+    assert not result.is_error
+    start, upload, finish = fake_graph.requests[-3:]
+    assert b"upload_phase=start" in start.content
+    assert upload.url.host == "rupload.facebook.com"
+    assert upload.headers["Authorization"] == f"OAuth {PAGE_TOKEN}"
+    assert upload.headers["file_size"] == str(len(video.read_bytes()))
+    assert b"video_state=SCHEDULED" in finish.content
+    assert b"video_id=777" in finish.content
+
+
+async def test_create_reel_rejects_missing_file(client: Client) -> None:
+    with pytest.raises(ToolError, match="video file not found"):
+        await client.call_tool("create_reel", {"video_path": "/nope/missing.mp4"})

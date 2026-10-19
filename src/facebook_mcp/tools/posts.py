@@ -6,7 +6,7 @@ from typing import Annotated
 from fastmcp import FastMCP
 from pydantic import Field, HttpUrl
 
-from facebook_mcp.domain import CreatedObject, OperationResult, Paginated, Post, PostDraft
+from facebook_mcp.domain import CreatedObject, OperationResult, Paginated, Post, PostDraft, ReelDraft
 from facebook_mcp.services import PostService
 from facebook_mcp.tools.common import (
     CREATES,
@@ -74,6 +74,21 @@ def register(mcp: FastMCP, posts: PostService) -> None:
     ) -> CreatedObject:
         """Publish a photo post on a Page from a public image URL."""
         return await posts.create_photo_post(str(image_url), caption, page)
+
+    @tool(mcp, annotations=CREATES, tags={WRITE_TAG})
+    async def create_reel(
+        video_path: Annotated[
+            str, Field(min_length=1, description="Absolute path to a local 9:16 .mp4 file.")
+        ],
+        description: OptionalText = None,
+        scheduled_time: ScheduledTime = None,
+        page: PageRef = None,
+    ) -> CreatedObject:
+        """Upload a local video and publish (or schedule) it as a Reel on a Page."""
+        draft = ReelDraft(
+            video_path=video_path, description=description, scheduled_time=scheduled_time
+        )
+        return await posts.create_reel(draft, page)
 
     @tool(mcp, annotations=MODIFIES, tags={WRITE_TAG})
     async def update_post(

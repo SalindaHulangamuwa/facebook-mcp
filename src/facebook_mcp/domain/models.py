@@ -8,6 +8,7 @@ into stable, typed shapes so AI clients get predictable structured output.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Generic, TypeVar
 
 from pydantic import AliasPath, BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -101,6 +102,15 @@ class OperationResult(GraphModel):
     id: str
 
 
+def _future_or_none(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    aware = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if aware <= datetime.now(timezone.utc):
+        raise ValueError("scheduled_time must be in the future")
+    return aware
+
+
 class PostDraft(GraphModel):
     """Validated input for publishing or scheduling a feed post."""
 
@@ -111,12 +121,7 @@ class PostDraft(GraphModel):
     @field_validator("scheduled_time")
     @classmethod
     def _must_be_future(cls, value: datetime | None) -> datetime | None:
-        if value is None:
-            return None
-        aware = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
-        if aware <= datetime.now(timezone.utc):
-            raise ValueError("scheduled_time must be in the future")
-        return aware
+        return _future_or_none(value)
 
     @model_validator(mode="after")
     def _needs_content(self) -> PostDraft:
@@ -129,6 +134,41 @@ class PostDraft(GraphModel):
         if self.scheduled_time:
             params |= {
                 "published": "false",
+                "scheduled_publish_time": int(self.scheduled_time.timestamp()),
+            }
+        return params
+
+
+class ReelDraft(GraphModel):
+    """Validated input for publishing or scheduling a Reel from a local video file."""
+
+    video_path: Path
+    description: str | None = None
+    scheduled_time: datetime | None = None
+
+    @field_validator("video_path")
+    @classmethod
+    def _must_exist(cls, value: Path) -> Path:
+        path = value.expanduser()
+        if not path.is_file():
+            raise ValueError(f"video file not found: {path}")
+        return path
+
+    @field_validator("scheduled_time")
+    @classmethod
+    def _must_be_future(cls, value: datetime | None) -> datetime | None:
+        return _future_or_none(value)
+
+    def finish_params(self, video_id: str) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "upload_phase": "finish",
+            "video_id": video_id,
+            "description": self.description,
+            "video_state": "PUBLISHED",
+        }
+        if self.scheduled_time:
+            params |= {
+                "video_state": "SCHEDULED",
                 "scheduled_publish_time": int(self.scheduled_time.timestamp()),
             }
         return params
