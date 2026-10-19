@@ -172,3 +172,42 @@ class ReelDraft(GraphModel):
                 "scheduled_publish_time": int(self.scheduled_time.timestamp()),
             }
         return params
+
+
+class PhotoDraft(GraphModel):
+    """Validated input for a photo post from either a public URL or a local image file."""
+
+    image_url: str | None = None
+    image_path: Path | None = None
+    caption: str | None = None
+    scheduled_time: datetime | None = None
+
+    @field_validator("image_path")
+    @classmethod
+    def _must_exist(cls, value: Path | None) -> Path | None:
+        if value is None:
+            return None
+        path = value.expanduser()
+        if not path.is_file():
+            raise ValueError(f"image file not found: {path}")
+        return path
+
+    @field_validator("scheduled_time")
+    @classmethod
+    def _must_be_future(cls, value: datetime | None) -> datetime | None:
+        return _future_or_none(value)
+
+    @model_validator(mode="after")
+    def _exactly_one_source(self) -> PhotoDraft:
+        if (self.image_url is None) == (self.image_path is None):
+            raise ValueError("Provide exactly one of image_url or image_path.")
+        return self
+
+    def to_graph_params(self) -> dict[str, Any]:
+        params: dict[str, Any] = {"url": self.image_url, "caption": self.caption}
+        if self.scheduled_time:
+            params |= {
+                "published": "false",
+                "scheduled_publish_time": int(self.scheduled_time.timestamp()),
+            }
+        return params

@@ -20,6 +20,7 @@ from facebook_mcp.graph.errors import GraphConnectionError, error_from_response
 
 JSON = dict[str, Any]
 Params = dict[str, Any]
+Files = dict[str, tuple[str, bytes, str]]
 
 
 def compute_appsecret_proof(access_token: str, app_secret: str) -> str:
@@ -68,6 +69,7 @@ class GraphClient:
         token: str | None = None,
         params: Params | None = None,
         data: Params | None = None,
+        files: Files | None = None,
     ) -> JSON:
         try:
             response = await self._connection().request(
@@ -75,6 +77,7 @@ class GraphClient:
                 path.lstrip("/"),
                 params={**_drop_none(params), **self._proof_params(token)},
                 data=_drop_none(data),
+                files=files,
                 headers=_auth_headers(token),
             )
         except httpx.HTTPError as exc:
@@ -132,8 +135,8 @@ class BoundGraph:
     async def get(self, path: str, params: Params | None = None) -> JSON:
         return await self._client.request("GET", path, token=self._token, params=params)
 
-    async def post(self, path: str, data: Params | None = None) -> JSON:
-        return await self._client.request("POST", path, token=self._token, data=data)
+    async def post(self, path: str, data: Params | None = None, files: Files | None = None) -> JSON:
+        return await self._client.request("POST", path, token=self._token, data=data, files=files)
 
     async def delete(self, path: str) -> JSON:
         return await self._client.request("DELETE", path, token=self._token)

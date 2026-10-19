@@ -233,3 +233,27 @@ async def test_create_reel_uploads_then_schedules(
 async def test_create_reel_rejects_missing_file(client: Client) -> None:
     with pytest.raises(ToolError, match="video file not found"):
         await client.call_tool("create_reel", {"video_path": "/nope/missing.mp4"})
+
+
+async def test_create_photo_post_uploads_local_file_scheduled(
+    client: Client, fake_graph: FakeGraph, tmp_path: Any
+) -> None:
+    image = tmp_path / "post.png"
+    image.write_bytes(b"\x89PNG\r\n\x1a\n")
+    fake_graph.reply("POST", f"{PAGE_ID}/photos", {"id": "9", "post_id": POST_ID})
+
+    result = await client.call_tool(
+        "create_photo_post",
+        {"image_path": str(image), "caption": "gps", "scheduled_time": "2999-01-01T00:00:00Z"},
+    )
+
+    assert not result.is_error
+    body = fake_graph.last.content
+    assert fake_graph.last.headers["content-type"].startswith("multipart/form-data")
+    assert b'name="source"; filename="post.png"' in body
+    assert b"scheduled_publish_time" in body
+
+
+async def test_create_photo_post_needs_exactly_one_source(client: Client) -> None:
+    with pytest.raises(ToolError, match="exactly one of image_url or image_path"):
+        await client.call_tool("create_photo_post", {"caption": "nothing"})

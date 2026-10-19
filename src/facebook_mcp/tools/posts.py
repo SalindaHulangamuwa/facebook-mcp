@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from typing import Annotated
 
 from fastmcp import FastMCP
 from pydantic import Field, HttpUrl
 
-from facebook_mcp.domain import CreatedObject, OperationResult, Paginated, Post, PostDraft
+from facebook_mcp.domain import (
+    CreatedObject,
+    OperationResult,
+    Paginated,
+    PhotoDraft,
+    Post,
+    PostDraft,
+)
 from facebook_mcp.services import PostService
 from facebook_mcp.tools.common import (
     CREATES,
@@ -68,12 +76,24 @@ def register(mcp: FastMCP, posts: PostService) -> None:
 
     @tool(mcp, annotations=CREATES, tags={WRITE_TAG})
     async def create_photo_post(
-        image_url: Annotated[HttpUrl, Field(description="Publicly reachable image URL.")],
+        image_url: Annotated[
+            HttpUrl | None, Field(description="Publicly reachable image URL.")
+        ] = None,
+        image_path: Annotated[
+            str | None, Field(description="Absolute path to a local image file instead of a URL.")
+        ] = None,
         caption: OptionalText = None,
+        scheduled_time: ScheduledTime = None,
         page: PageRef = None,
     ) -> CreatedObject:
-        """Publish a photo post on a Page from a public image URL."""
-        return await posts.create_photo_post(str(image_url), caption, page)
+        """Publish (or schedule) a photo post from a public URL or a local image file."""
+        draft = PhotoDraft(
+            image_url=str(image_url) if image_url else None,
+            image_path=Path(image_path) if image_path else None,
+            caption=caption,
+            scheduled_time=scheduled_time,
+        )
+        return await posts.create_photo_post(draft, page)
 
     @tool(mcp, annotations=MODIFIES, tags={WRITE_TAG})
     async def update_post(

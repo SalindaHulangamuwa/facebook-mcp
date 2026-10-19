@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import mimetypes
 
 from facebook_mcp.domain import (
     CreatedObject,
     OperationResult,
     Paginated,
+    PhotoDraft,
     Post,
     PostDraft,
     ReelDraft,
@@ -46,13 +48,14 @@ class PostService(PageAwareService):
         payload = await session.graph.post(f"{session.id}/feed", draft.to_graph_params())
         return CreatedObject.model_validate(payload)
 
-    async def create_photo_post(
-        self, image_url: str, caption: str | None = None, page: str | None = None
-    ) -> CreatedObject:
+    async def create_photo_post(self, draft: PhotoDraft, page: str | None = None) -> CreatedObject:
         session = await self.pages.resolve(page)
-        payload = await session.graph.post(
-            f"{session.id}/photos", {"url": image_url, "caption": caption}
-        )
+        files = None
+        if draft.image_path:
+            content = await asyncio.to_thread(draft.image_path.read_bytes)
+            mime = mimetypes.guess_type(draft.image_path.name)[0] or "image/jpeg"
+            files = {"source": (draft.image_path.name, content, mime)}
+        payload = await session.graph.post(f"{session.id}/photos", draft.to_graph_params(), files)
         return CreatedObject.model_validate(payload)
 
     async def create_reel(self, draft: ReelDraft, page: str | None = None) -> CreatedObject:
