@@ -14,6 +14,7 @@ from facebook_mcp.domain import (
 )
 from facebook_mcp.pages import PageSession
 from facebook_mcp.services.base import PageAwareService, fields, operation_result
+from facebook_mcp.services.uploads import ProgressCallback, ignore_progress, stream_file
 
 POST_FIELDS = fields(
     "id",
@@ -58,15 +59,26 @@ class PostService(PageAwareService):
         payload = await session.graph.post(f"{session.id}/photos", draft.to_graph_params(), files)
         return CreatedObject.model_validate(payload)
 
-    async def create_reel(self, draft: ReelDraft, page: str | None = None) -> CreatedObject:
-        """Reels publishing is three calls: open an upload session, send bytes, finish."""
+    async def create_reel(
+        self,
+        draft: ReelDraft,
+        page: str | None = None,
+        on_progress: ProgressCallback = ignore_progress,
+    ) -> CreatedObject:
+        """Reels publishing is three calls: open an upload session, send bytes, finish.
+
+        The video is streamed in chunks (not loaded into memory) and `on_progress`
+        is called as bytes go out.
+        """
         session = await self.pages.resolve(page)
         edge = f"{session.id}/video_reels"
         started = await session.graph.post(edge, {"upload_phase": "start"})
         video_id = str(started["video_id"])
-        content = await asyncio.to_thread(draft.video_path.read_bytes)
+        size = str(draft.video_path.stat().st_size)
         await session.graph.upload(
-            started["upload_url"], content, {"offset": "0", "file_size": str(len(content))}
+            started["upload_url"],
+            stream_file(draft.video_path, on_progress),
+            {"offset": "0", "file_size": size, "Content-Length": size},
         )
         await session.graph.post(edge, draft.finish_params(video_id))
         return CreatedObject(id=video_id)

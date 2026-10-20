@@ -52,6 +52,7 @@ class FacebookSettings(BaseSettings):
         default="https://graph.facebook.com", validation_alias="FB_GRAPH_BASE_URL"
     )
     request_timeout_seconds: float = Field(default=30.0, gt=0, validation_alias="FB_TIMEOUT")
+    upload_timeout_seconds: float = Field(default=900.0, gt=0, validation_alias="FB_UPLOAD_TIMEOUT")
 
     @model_validator(mode="after")
     def _exactly_one_credential_mode(self) -> FacebookSettings:

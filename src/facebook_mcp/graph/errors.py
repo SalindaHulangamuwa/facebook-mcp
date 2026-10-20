@@ -57,6 +57,13 @@ class GraphConnectionError(GraphAPIError):
     hint = "Could not reach graph.facebook.com. Check network connectivity."
 
 
+class GraphTimeoutError(GraphConnectionError):
+    hint = (
+        "Facebook did not respond in time. For large videos raise FB_UPLOAD_TIMEOUT "
+        "(seconds) and try again."
+    )
+
+
 def _error_class_for(code: int | None) -> type[GraphAPIError]:
     if code in _AUTH_CODES:
         return GraphAuthError

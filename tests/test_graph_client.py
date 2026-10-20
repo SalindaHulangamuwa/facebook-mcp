@@ -12,6 +12,7 @@ from facebook_mcp.graph import (
     GraphConnectionError,
     GraphPermissionError,
     GraphRateLimitError,
+    GraphTimeoutError,
 )
 from facebook_mcp.graph.client import compute_appsecret_proof
 from tests.conftest import FakeGraph
@@ -80,3 +81,26 @@ async def test_wraps_network_failures() -> None:
     client = GraphClient(api_version="v26.0", transport=httpx.MockTransport(explode))
     with pytest.raises(GraphConnectionError):
         await client.bind("t").get("me")
+
+
+async def test_timeouts_raise_actionable_error() -> None:
+    def stall(request: httpx.Request) -> httpx.Response:
+        raise httpx.WriteTimeout("timed out", request=request)
+
+    client = GraphClient(api_version="v26.0", transport=httpx.MockTransport(stall))
+    with pytest.raises(GraphTimeoutError) as caught:
+        await client.bind("t").upload("https://rupload.facebook.com/x", b"data", {})
+
+    assert "FB_UPLOAD_TIMEOUT" in caught.value.user_message
+
+
+async def test_uploads_use_the_long_upload_timeout(fake_graph: FakeGraph) -> None:
+    fake_graph.reply("POST", "x", {"success": True})
+    client = GraphClient(
+        api_version="v26.0", timeout=30, upload_timeout=600, transport=fake_graph.transport
+    )
+
+    await client.bind("t").upload("https://rupload.facebook.com/v26.0/x", b"data", {})
+
+    timeout = fake_graph.last.extensions["timeout"]
+    assert (timeout["connect"], timeout["write"], timeout["read"]) == (30, 600, 600)

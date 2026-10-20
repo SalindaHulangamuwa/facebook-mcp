@@ -96,6 +96,7 @@ directory (see [`.env.example`](.env.example)).
 | `FB_APP_SECRET` | | Your app secret. Turns on `appsecret_proof` signing (recommended). |
 | `FB_GRAPH_API_VERSION` | `v26.0` | Graph API version |
 | `FB_TIMEOUT` | `30` | Graph request timeout, in seconds |
+| `FB_UPLOAD_TIMEOUT` | `900` | Timeout for sending and confirming video/file uploads, in seconds |
 | `MCP_TRANSPORT` | `stdio` | `stdio` or `http` |
 | `MCP_HOST` / `MCP_PORT` / `MCP_PATH` | `127.0.0.1` / `8000` / `/mcp` | HTTP transport only |
 | `MCP_AUTH_TOKEN` | | HTTP only: require `Authorization: Bearer <token>` |

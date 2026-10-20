@@ -11,16 +11,23 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+from collections.abc import AsyncIterable, Awaitable, Callable
 from typing import Any
 
 import httpx
 
 from facebook_mcp.config import FacebookSettings
-from facebook_mcp.graph.errors import GraphConnectionError, error_from_response
+from facebook_mcp.graph.errors import (
+    GraphConnectionError,
+    GraphTimeoutError,
+    error_from_response,
+)
 
 JSON = dict[str, Any]
 Params = dict[str, Any]
 Files = dict[str, tuple[str, bytes, str]]
+UploadBody = bytes | AsyncIterable[bytes]
+Send = Callable[[httpx.AsyncClient], Awaitable[httpx.Response]]
 
 
 def compute_appsecret_proof(access_token: str, app_secret: str) -> str:
@@ -36,9 +43,12 @@ class GraphClient:
         base_url: str = "https://graph.facebook.com",
         app_secret: str | None = None,
         timeout: float = 30.0,
+        upload_timeout: float = 900.0,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._app_secret = app_secret
+        # Uploads keep a short connect timeout but may take minutes to send and confirm.
+        self._upload_timeout = httpx.Timeout(timeout, read=upload_timeout, write=upload_timeout)
         self._http_options: dict[str, Any] = {
             "base_url": f"{base_url.rstrip('/')}/{api_version}/",
             "timeout": timeout,
@@ -55,6 +65,7 @@ class GraphClient:
             base_url=settings.graph_base_url,
             app_secret=settings.app_secret.get_secret_value() if settings.app_secret else None,
             timeout=settings.request_timeout_seconds,
+            upload_timeout=settings.upload_timeout_seconds,
             transport=transport,
         )
 
@@ -71,8 +82,8 @@ class GraphClient:
         data: Params | None = None,
         files: Files | None = None,
     ) -> JSON:
-        try:
-            response = await self._connection().request(
+        return await self._send(
+            lambda http: http.request(
                 method,
                 path.lstrip("/"),
                 params={**_drop_none(params), **self._proof_params(token)},
@@ -80,27 +91,23 @@ class GraphClient:
                 files=files,
                 headers=_auth_headers(token),
             )
-        except httpx.HTTPError as exc:
-            raise GraphConnectionError(str(exc) or type(exc).__name__) from exc
-        if response.is_error:
-            raise error_from_response(response)
-        payload: JSON = response.json()
-        return payload
+        )
 
     async def upload(
-        self, url: str, *, token: str, content: bytes, headers: dict[str, str]
+        self, url: str, *, token: str, content: UploadBody, headers: dict[str, str]
     ) -> JSON:
-        """POST raw bytes to an absolute upload URL (e.g. rupload.facebook.com for Reels)."""
-        try:
-            response = await self._connection().post(
-                url, content=content, headers={"Authorization": f"OAuth {token}", **headers}
+        """POST raw or streamed bytes to an absolute upload URL (e.g. rupload.facebook.com).
+
+        Uses the long upload timeout, so large videos are not cut off mid-transfer.
+        """
+        return await self._send(
+            lambda http: http.post(
+                url,
+                content=content,
+                headers={"Authorization": f"OAuth {token}", **headers},
+                timeout=self._upload_timeout,
             )
-        except httpx.HTTPError as exc:
-            raise GraphConnectionError(str(exc) or type(exc).__name__) from exc
-        if response.is_error:
-            raise error_from_response(response)
-        payload: JSON = response.json()
-        return payload
+        )
 
     async def aclose(self) -> None:
         """Release pooled connections. The client reopens lazily if used again."""
@@ -118,6 +125,19 @@ class GraphClient:
         if self._http is None or self._http.is_closed:
             self._http = httpx.AsyncClient(**self._http_options)
         return self._http
+
+    async def _send(self, send: Send) -> JSON:
+        """Run one HTTP exchange and translate transport failures and error responses."""
+        try:
+            response = await send(self._connection())
+        except httpx.TimeoutException as exc:
+            raise GraphTimeoutError(f"Request timed out ({type(exc).__name__})") from exc
+        except httpx.HTTPError as exc:
+            raise GraphConnectionError(str(exc) or type(exc).__name__) from exc
+        if response.is_error:
+            raise error_from_response(response)
+        payload: JSON = response.json()
+        return payload
 
     def _proof_params(self, token: str | None) -> Params:
         if not (token and self._app_secret):
@@ -141,7 +161,7 @@ class BoundGraph:
     async def delete(self, path: str) -> JSON:
         return await self._client.request("DELETE", path, token=self._token)
 
-    async def upload(self, url: str, content: bytes, headers: dict[str, str]) -> JSON:
+    async def upload(self, url: str, content: UploadBody, headers: dict[str, str]) -> JSON:
         return await self._client.upload(url, token=self._token, content=content, headers=headers)
 
     def __repr__(self) -> str:  # never leak the token into logs or tracebacks

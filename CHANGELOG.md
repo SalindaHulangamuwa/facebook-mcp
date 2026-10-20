@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `create_reel` no longer times out on larger videos. Uploads use a separate
+  `FB_UPLOAD_TIMEOUT` (default 900 s) instead of the 30 s API timeout, stream
+  the file in 4 MB chunks instead of loading it into memory, and report upload
+  progress to the MCP client.
+- Timeouts now surface as a clear `GraphTimeoutError` with a hint, instead of
+  an empty connection error.
+
 ## [0.3.0] - 2026-10-19
 
 ### Added

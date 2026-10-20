@@ -5,6 +5,7 @@ from facebook_mcp.graph.errors import (
     GraphConnectionError,
     GraphPermissionError,
     GraphRateLimitError,
+    GraphTimeoutError,
 )
 
 __all__ = [
@@ -15,4 +16,5 @@ __all__ = [
     "GraphConnectionError",
     "GraphPermissionError",
     "GraphRateLimitError",
+    "GraphTimeoutError",
 ]

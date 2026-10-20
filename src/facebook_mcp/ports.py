@@ -6,6 +6,7 @@ packages can rely on the abstraction without importing each other.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterable
 from typing import Any, Protocol
 
 
@@ -23,4 +24,6 @@ class GraphGateway(Protocol):
 
     async def delete(self, path: str) -> dict[str, Any]: ...
 
-    async def upload(self, url: str, content: bytes, headers: dict[str, str]) -> dict[str, Any]: ...
+    async def upload(
+        self, url: str, content: bytes | AsyncIterable[bytes], headers: dict[str, str]
+    ) -> dict[str, Any]: ...

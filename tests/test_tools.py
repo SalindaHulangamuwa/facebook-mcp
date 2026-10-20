@@ -230,6 +230,35 @@ async def test_create_reel_uploads_then_schedules(
     assert b"video_id=777" in finish.content
 
 
+async def test_create_reel_streams_large_video_with_progress(
+    client: Client, fake_graph: FakeGraph, tmp_path: Any
+) -> None:
+    video = tmp_path / "big.mp4"
+    video.write_bytes(b"\x01" * (9 * 1024 * 1024))  # spans three 4 MB chunks
+    upload_url = "https://rupload.facebook.com/video-upload/v26.0/888"
+    fake_graph.reply_sequence(
+        "POST",
+        f"{PAGE_ID}/video_reels",
+        httpx.Response(200, json={"video_id": "888", "upload_url": upload_url}),
+        httpx.Response(200, json={"success": True}),
+    )
+    fake_graph.reply("POST", "v26.0/888", {"success": True})
+    updates: list[float] = []
+
+    async def on_progress(progress: float, total: float | None, message: str | None) -> None:
+        updates.append(progress)
+
+    result = await client.call_tool(
+        "create_reel", {"video_path": str(video)}, progress_handler=on_progress
+    )
+
+    assert not result.is_error
+    upload = fake_graph.requests[-2]
+    assert upload.headers["Content-Length"] == str(9 * 1024 * 1024)
+    assert len(upload.content) == 9 * 1024 * 1024
+    assert updates == [4 * 1024 * 1024, 8 * 1024 * 1024, 9 * 1024 * 1024]
+
+
 async def test_create_reel_rejects_missing_file(client: Client) -> None:
     with pytest.raises(ToolError, match="video file not found"):
         await client.call_tool("create_reel", {"video_path": "/nope/missing.mp4"})
