@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Annotated
+
 from fastmcp import FastMCP
+from pydantic import Field
 
 from facebook_mcp.domain import Comment, CreatedObject, OperationResult, Paginated
 from facebook_mcp.services import CommentService
@@ -33,10 +37,21 @@ def register(mcp: FastMCP, comments: CommentService) -> None:
 
     @tool(mcp, annotations=CREATES, tags={WRITE_TAG})
     async def add_comment(
-        object_id: GraphId, message: Message, page: PageRef = None
+        object_id: GraphId,
+        message: Message,
+        image_path: Annotated[
+            str | None, Field(description="Optional absolute path to a local image to attach.")
+        ] = None,
+        page: PageRef = None,
     ) -> CreatedObject:
-        """Comment as the Page on a post, or reply to a comment by passing its id."""
-        return await comments.add_comment(object_id, message, page)
+        """Comment as the Page on a post, or reply to a comment by passing its id.
+
+        Optionally attach a local image (photo comment).
+        """
+        image = Path(image_path).expanduser() if image_path else None
+        if image is not None and not image.is_file():
+            raise ValueError(f"image file not found: {image}")
+        return await comments.add_comment(object_id, message, page, image)
 
     @tool(mcp, annotations=MODIFIES, tags={WRITE_TAG})
     async def set_comment_hidden(

@@ -8,6 +8,7 @@ on a long-running tool call.
 from __future__ import annotations
 
 import asyncio
+import mimetypes
 from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
 
@@ -34,3 +35,15 @@ async def stream_file(
             yield chunk
             sent += len(chunk)
             await on_progress(sent, total)
+
+
+ImageFiles = dict[str, tuple[str, bytes, str]]
+
+
+async def image_files(path: Path | None) -> ImageFiles | None:
+    """Multipart `source` field for a small local image, or None when there is no file."""
+    if path is None:
+        return None
+    content = await asyncio.to_thread(path.read_bytes)
+    mime = mimetypes.guess_type(path.name)[0] or "image/jpeg"
+    return {"source": (path.name, content, mime)}

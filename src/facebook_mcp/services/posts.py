@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-import mimetypes
-
 from facebook_mcp.domain import (
     CreatedObject,
     OperationResult,
@@ -14,7 +11,12 @@ from facebook_mcp.domain import (
 )
 from facebook_mcp.pages import PageSession
 from facebook_mcp.services.base import PageAwareService, fields, operation_result
-from facebook_mcp.services.uploads import ProgressCallback, ignore_progress, stream_file
+from facebook_mcp.services.uploads import (
+    ProgressCallback,
+    ignore_progress,
+    image_files,
+    stream_file,
+)
 
 POST_FIELDS = fields(
     "id",
@@ -51,11 +53,7 @@ class PostService(PageAwareService):
 
     async def create_photo_post(self, draft: PhotoDraft, page: str | None = None) -> CreatedObject:
         session = await self.pages.resolve(page)
-        files = None
-        if draft.image_path:
-            content = await asyncio.to_thread(draft.image_path.read_bytes)
-            mime = mimetypes.guess_type(draft.image_path.name)[0] or "image/jpeg"
-            files = {"source": (draft.image_path.name, content, mime)}
+        files = await image_files(draft.image_path)
         payload = await session.graph.post(f"{session.id}/photos", draft.to_graph_params(), files)
         return CreatedObject.model_validate(payload)
 

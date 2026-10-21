@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-21
+
+### Added
+
+- `add_comment` accepts `image_path` to attach a local image to a comment or reply.
+
 ## [0.3.1] - 2026-10-20
 
 ### Fixed
@@ -47,7 +53,7 @@ All notable changes to this project are documented here. The format follows
 - `facebook-mcp exchange-token` helper for long-lived tokens.
 - Docker image.
 
-[Unreleased]: https://github.com/SalindaHulangamuwa/facebook-mcp/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/SalindaHulangamuwa/facebook-mcp/compare/v0.4.0...HEAD
 [0.3.0]: https://github.com/SalindaHulangamuwa/facebook-mcp/releases/tag/v0.3.0
 [0.2.0]: https://github.com/SalindaHulangamuwa/facebook-mcp/releases/tag/v0.2.0
 [0.1.0]: https://github.com/SalindaHulangamuwa/facebook-mcp/releases/tag/v0.1.0

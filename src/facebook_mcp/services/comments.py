@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal
 
 from facebook_mcp.domain import Comment, CreatedObject, OperationResult, Paginated
 from facebook_mcp.services.base import PageAwareService, fields, operation_result
+from facebook_mcp.services.uploads import image_files
 
 CommentOrder = Literal["chronological", "reverse_chronological"]
 
@@ -29,11 +31,20 @@ class CommentService(PageAwareService):
         return Paginated[Comment].from_graph(payload, Comment)
 
     async def add_comment(
-        self, object_id: str, message: str, page: str | None = None
+        self,
+        object_id: str,
+        message: str,
+        page: str | None = None,
+        image_path: Path | None = None,
     ) -> CreatedObject:
-        """Comment on a post, or reply to a comment when `object_id` is a comment id."""
+        """Comment on a post, or reply to a comment when `object_id` is a comment id.
+
+        An optional local image is attached to the comment.
+        """
         session = await self.pages.resolve(page, object_id=object_id)
-        payload = await session.graph.post(f"{object_id}/comments", {"message": message})
+        payload = await session.graph.post(
+            f"{object_id}/comments", {"message": message}, await image_files(image_path)
+        )
         return CreatedObject.model_validate(payload)
 
     async def set_hidden(

@@ -286,3 +286,20 @@ async def test_create_photo_post_uploads_local_file_scheduled(
 async def test_create_photo_post_needs_exactly_one_source(client: Client) -> None:
     with pytest.raises(ToolError, match="exactly one of image_url or image_path"):
         await client.call_tool("create_photo_post", {"caption": "nothing"})
+
+
+async def test_add_comment_with_image_reply(
+    client: Client, fake_graph: FakeGraph, tmp_path: Any
+) -> None:
+    image = tmp_path / "answer.png"
+    image.write_bytes(b"\x89PNG\r\n\x1a\n")
+    fake_graph.reply("POST", f"{COMMENT_ID}/comments", {"id": "42_8"})
+
+    result = await client.call_tool(
+        "add_comment", {"object_id": COMMENT_ID, "message": "here you go", "image_path": str(image)}
+    )
+
+    assert not result.is_error
+    assert fake_graph.last.headers["content-type"].startswith("multipart/form-data")
+    assert b'name="source"; filename="answer.png"' in fake_graph.last.content
+    assert b"here you go" in fake_graph.last.content
